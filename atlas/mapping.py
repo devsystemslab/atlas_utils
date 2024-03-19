@@ -1,6 +1,8 @@
 import os
 import sys
 
+from typing import Literal, Optional
+
 import numpy as np
 import pandas as pd
 
@@ -9,7 +11,7 @@ from scvi.model.utils import mde
 
 import scanpy as sc
 
-from wknn import get_wknn
+from .wknn import get_wknn
 
 
 class AtlasMapper:
