@@ -185,3 +185,22 @@ class AtlasMapper:
 
         self.ref_trans_prob = scores["ref_trans_prop"]
         return scores
+
+    def transfer_labels(label_key):
+        """
+        Transfer labels from the reference dataset to the query dataset
+
+        Parameters
+        ----------
+        label_key : str
+            The column in the reference dataset to transfer
+        """
+
+        scores = transfer_labels(
+            self.ref_adata,
+            self.query_adata,
+            self.wknn,
+            label_key=label_key,
+        )
+
+        return scores
