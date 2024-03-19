@@ -12,7 +12,7 @@ from scvi.model.utils import mde
 import scarches
 import scanpy as sc
 
-from .wknn import get_wknn
+from .wknn import get_wknn, transfer_labels, estimate_presence_score
 
 
 class AtlasMapper:
@@ -21,6 +21,7 @@ class AtlasMapper:
         self.ref_model = ref_model
         self.ref_adata = ref_model.adata
         self.query_model = None
+        self.ref_trans_prop = None
 
     def map_query(self, query_adata, retrain="partial", **kwargs):
         """
@@ -110,9 +111,9 @@ class AtlasMapper:
     def compute_wknn(
         k: int = 100,
         query2ref: bool = True,
-        ref2query: bool = False,
+        ref2query: bool = True,
         weighting_scheme: Literal[
-            "n", "top_n", "jaccard", "jaccard_square"
+            "n", "top_n", "jaccard", "jaccard_square", "gaussian", "dist"
         ] = "jaccard_square",
         top_n: Optional[int] = None,
         use_gpu: bool = False,
@@ -132,7 +133,6 @@ class AtlasMapper:
             How to weight edges in the ref-query neighbor graph
         top_n : int
             The number of top neighbors to consider
-        use_gpu : bool
         """
 
         ref_latent = self._get_latent(self.query_model, self.ref_adata)
@@ -146,7 +146,29 @@ class AtlasMapper:
             ref2query=ref2query,
             weighting_scheme=weighting_scheme,
             top_n=top_n,
-            use_gpu=use_gpu,
         )
 
         self.wknn = wknn
+        self.ref_adata.obsm["X_latent"] = ref_latent
+        self.query_adata.obsm["X_latent"] = query_latent
+
+    def estimate_presence_score(
+        self, split_by=None, random_walk=True, alpha=0.1, n_rounds=100, log=True
+    ):
+        """
+        Estimate the presence score of the query dataset
+        """
+
+        scores = estimate_presence_score(
+            self.ref_adata,
+            self.query_adata,
+            self.wknn,
+            ref_trans_prop=self.ref_trans_prob,
+            split_by=split_by,
+            alpha_random_walk=alpha,
+            num_rounds_random_walk=n_rounds,
+            log=log,
+        )
+
+        self.ref_trans_prob = scores["ref_trans_prop"]
+        return scores
