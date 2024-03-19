@@ -77,19 +77,44 @@ def random_walk_with_restart(init, transition_prob, alpha=0.5, num_rounds=100):
 
 
 def get_wknn(
-    ref,  # the ref representation to build ref-query neighbor graph
-    query,  # the query representation to build ref-query neighbor graph
-    ref2=None,  # the ref representation to build ref-ref neighbor graph
-    k: int = 100,  # number of neighbors per cell
-    query2ref: bool = True,  # consider query-to-ref neighbors
-    ref2query: bool = True,  # consider ref-to-query neighbors
+    ref,
+    query,
+    ref2=None,
+    k: int = 100,
+    query2ref: bool = True,
+    ref2query: bool = True,
     weighting_scheme: Literal[
         "n", "top_n", "jaccard", "jaccard_square"
-    ] = "jaccard_square",  # how to weight edges in the ref-query neighbor graph
+    ] = "jaccard_square",
     top_n: Optional[int] = None,
     return_adjs: bool = False,
     use_gpu: bool = False,
 ):
+    """
+    Compute the weighted k-nearest neighbors graph between the reference and query datasets
+
+    Parameters
+    ----------
+    ref : np.ndarray
+        The reference representation to build ref-query neighbor graph
+    query : np.ndarray
+        The query representation to build ref-query neighbor graph
+    ref2 : np.ndarray
+        The reference representation to build ref-ref neighbor graph
+    k : int
+        Number of neighbors per cell
+    query2ref : bool
+        Consider query-to-ref neighbors
+    ref2query : bool
+        Consider ref-to-query neighbors
+    weighting_scheme : str
+        How to weight edges in the ref-query neighbor graph
+    top_n : int
+        The number of top neighbors to consider
+    return_adjs : bool
+        Whether to return the adjacency matrices
+    use_gpu : bool
+    """
     adj_q2r = build_nn(ref=ref, query=query, k=k, use_gpu=use_gpu)
 
     adj_r2q = None
