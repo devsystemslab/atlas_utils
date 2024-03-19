@@ -9,18 +9,20 @@ import pandas as pd
 import scvi
 from scvi.model.utils import mde
 
+import scarches
 import scanpy as sc
 
 from .wknn import get_wknn
 
 
 class AtlasMapper:
-    def __init__(self, ref_model, model="scanvi"):
+    def __init__(self, ref_model):
+        self.model_type = self._check_model_type(ref_model)
         self.ref_model = ref_model
-        self.adata = ref_model
+        self.ref_adata = ref_model.adata
         self.query_model = None
 
-    def map_query(self, query_adata, query_model, retrain="partial", **kwargs):
+    def map_query(self, query_adata, retrain="partial", **kwargs):
         """
         Map a query dataset to the reference dataset
 
@@ -34,16 +36,18 @@ class AtlasMapper:
             Whether to retrain the query model. Options are "partial", "full" or "none"
         """
         if retrain in ["partial", "full"]:
-            if self.model == "scanvi":
-                self._train_scanvi(query_adata, query_model, retrain, **kwargs)
-            if self.model == "scvi":
-                self._train_scvi(query_adata, query_model, retrain, **kwargs)
-            if self.model == "scpoli":
-                self._train_scpoli(query_adata, query_model, **kwargs)
+            if self.model_type == "scanvi":
+                self._train_scanvi(query_adata, retrain, **kwargs)
+            if self.model_type == "scvi":
+                self._train_scvi(query_adata, retrain, **kwargs)
+            if self.model_type == "scpoli":
+                self._train_scpoli(query_adata, **kwargs)
+            self.query_adata = self.query_model.adata
         else:
             self.query_model = self.ref_model
+            self.query_adata = query_adata
 
-    def _train_scanvi(self, query_adata, query_model, retrain="partial", **kwargs):
+    def _train_scanvi(self, query_adata, retrain="partial", **kwargs):
         """
         Train a new scanvi model on the query data
         """
@@ -87,18 +91,30 @@ class AtlasMapper:
 
         self.query_model = vae_q
 
+    def _check_model_type(self, model):
+        if isinstance(model, scvi.model._scanvi.SCANVI):
+            return "scanvi"
+        elif isinstance(model, scvi.model._scvi.SCVI):
+            return "scvi"
+        elif isinstance(model, scarches.models.scpoli.scPoli):
+            return "scpoli"
+        else:
+            raise RuntimeError("This VAE model is currently not supported")
+
+    def _get_latent(self, model, adata, **kwargs):
+        if self.model_type in ["scanvi", "scanvi"]:
+            return model.get_latent_representation(adata, **kwargs)
+        if self.model_type == "scpoli":
+            return model.get_latent(adata, **kwargs)
+
     def compute_wknn(
-        ref,
-        query,
-        ref2=None,
         k: int = 100,
         query2ref: bool = True,
-        ref2query: bool = True,
+        ref2query: bool = False,
         weighting_scheme: Literal[
             "n", "top_n", "jaccard", "jaccard_square"
         ] = "jaccard_square",
         top_n: Optional[int] = None,
-        return_adjs: bool = False,
         use_gpu: bool = False,
     ):
         """
@@ -106,12 +122,6 @@ class AtlasMapper:
 
         Parameters
         ----------
-        ref : np.ndarray
-            The reference representation to build ref-query neighbor graph
-        query : np.ndarray
-            The query representation to build ref-query neighbor graph
-        ref2 : np.ndarray
-            The reference representation to build ref-ref neighbor graph
         k : int
             Number of neighbors per cell
         query2ref : bool
@@ -122,20 +132,21 @@ class AtlasMapper:
             How to weight edges in the ref-query neighbor graph
         top_n : int
             The number of top neighbors to consider
-        return_adjs : bool
-            Whether to return the adjacency matrices
         use_gpu : bool
         """
 
+        ref_latent = self._get_latent(self.query_model, self.ref_adata)
+        query_latent = self._get_latent(self.query_model, self.query_adata)
+
         wknn = get_wknn(
-            ref=ref,
-            query=query,
-            ref2=ref2,
+            ref=ref_latent,
+            query=query_latent,
             k=k,
             query2ref=query2ref,
             ref2query=ref2query,
             weighting_scheme=weighting_scheme,
             top_n=top_n,
-            return_adjs=return_adjs,
             use_gpu=use_gpu,
         )
+
+        self.wknn = wknn
