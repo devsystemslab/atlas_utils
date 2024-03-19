@@ -157,6 +157,19 @@ class AtlasMapper:
     ):
         """
         Estimate the presence score of the query dataset
+
+        Parameters
+        ----------
+        split_by : str
+            The column in the query dataset to split by
+        random_walk : bool
+            Whether to use random walk to estimate presence score
+        alpha : float
+            The heat diffusion parameter for the random walk
+        n_rounds : int
+            The number of rounds for the random walk
+        log : bool
+            Whether to log the presence score
         """
 
         scores = estimate_presence_score(
