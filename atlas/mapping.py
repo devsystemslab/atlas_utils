@@ -21,7 +21,7 @@ class AtlasMapper:
         self.ref_model = ref_model
         self.ref_adata = ref_model.adata
         self.query_model = None
-        self.ref_trans_prop = None
+        self.ref_trans_prob = None
 
     def map_query(self, query_adata, retrain="partial", **kwargs):
         """
@@ -109,6 +109,7 @@ class AtlasMapper:
             return model.get_latent(adata, **kwargs)
 
     def compute_wknn(
+        self,
         k: int = 100,
         query2ref: bool = True,
         ref2query: bool = True,
@@ -152,7 +153,7 @@ class AtlasMapper:
         self.ref_adata.obsm["X_latent"] = ref_latent
         self.query_adata.obsm["X_latent"] = query_latent
 
-    def estimate_presence_score(
+    def estimate_presence_scores(
         self, split_by=None, random_walk=True, alpha=0.1, n_rounds=100, log=True
     ):
         """
@@ -176,6 +177,8 @@ class AtlasMapper:
             self.ref_adata,
             self.query_adata,
             self.wknn,
+            use_rep_ref_wknn="X_latent",
+            use_rep_query_wknn="X_latent",
             ref_trans_prop=self.ref_trans_prob,
             split_by=split_by,
             alpha_random_walk=alpha,
@@ -186,7 +189,7 @@ class AtlasMapper:
         self.ref_trans_prob = scores["ref_trans_prop"]
         return scores
 
-    def transfer_labels(label_key):
+    def transfer_labels(self, label_key):
         """
         Transfer labels from the reference dataset to the query dataset
 
