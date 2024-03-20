@@ -46,9 +46,7 @@ def build_nn(
         query = ref
 
     if torch.cuda.is_available() and importlib.util.find_spec("cuml"):
-        print(
-            "GPU detected and cuml installed. Use cuML for neighborhood estimation..."
-        )
+        print("GPU detected and cuml installed. Use cuML for neighborhood estimation.")
         from cuml.neighbors import NearestNeighbors
 
         model = NearestNeighbors(n_neighbors=k)
@@ -56,7 +54,7 @@ def build_nn(
         knn = model.kneighbors(query)
     else:
         print(
-            "Failed calling cuML. Falling back to neighborhood estimation using CPU with pynndescent"
+            "Failed calling cuML. Falling back to neighborhood estimation using CPU with pynndescent."
         )
         index = NNDescent(ref)
         knn = index.query(query, k=k)
