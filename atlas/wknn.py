@@ -16,42 +16,22 @@ import argparse
 warnings.filterwarnings("ignore")
 
 
-def gaussian_kernel(d, sigma=None):
-    if sigma is None:
-        sigma = np.max(d) / 3
-    gauss = np.exp(-0.5 * np.square(d) / np.square(sigma))
-    return gauss
-
-
-def nn2adj(
-    nn,
-    n1=None,
-    n2=None,
-    weight: Literal["unweighted", "dist", "gaussian_kernel"] = "unweighted",
-    sigma=None,
-):
+def nn2adj(nn, n1=None, n2=None):
     if n1 is None:
-        n1 = nn[0].shape[0]
+        n1 = nn[1].shape[0]
     if n2 is None:
-        n2 = np.max(nn[0].flatten())
+        n2 = np.max(nn[1].flatten())
 
     df = pd.DataFrame(
         {
-            "i": np.repeat(range(nn[0].shape[0]), nn[0].shape[1]),
-            "j": nn[0].flatten(),
-            "x": nn[1].flatten(),
+            "i": np.repeat(range(nn[1].shape[0]), nn[1].shape[1]),
+            "j": nn[1].flatten(),
+            "x": nn[0].flatten(),
         }
     )
-
-    if weight == "unweighted":
-        adj = sparse.csr_matrix(
-            (np.repeat(1, df.shape[0]), (df["i"], df["j"])), shape=(n1, n2)
-        )
-    else:
-        if weight == "gaussian_kernel":
-            df["x"] = gaussian_kernel(df["x"], sigma)
-        adj = sparse.csr_matrix((df["x"], (df["i"], df["j"])), shape=(n1, n2))
-
+    adj = sparse.csr_matrix(
+        (np.repeat(1, df.shape[0]), (df["i"], df["j"])), shape=(n1, n2)
+    )
     return adj
 
 
@@ -81,7 +61,7 @@ def build_nn(
         index = NNDescent(ref)
         knn = index.query(query, k=k)
 
-    adj = nn2adj(knn, n1=query.shape[0], n2=ref.shape[0], weight=weight, sigma=sigma)
+    adj = nn2adj(knn, n1=query.shape[0], n2=ref.shape[0])
     return adj
 
 
@@ -91,23 +71,17 @@ def build_mutual_nn(dat1, dat2=None, k1=100, k2=None):
     if k2 is None:
         k2 = k1
 
-    index_1 = NNDescent(dat1)
-    index_2 = NNDescent(dat2)
-    knn_21 = index_1.query(dat2, k=k1)
-    knn_12 = index_2.query(dat1, k=k2)
-    adj_21 = nn2adj(knn_21, n1=dat2.shape[0], n2=dat1.shape[0])
-    adj_12 = nn2adj(knn_12, n1=dat1.shape[0], n2=dat2.shape[0])
+    adj_12 = build_nn(dat1, dat2, k=k2)
+    adj_21 = build_nn(dat2, dat1, k=k1)
 
     adj_mnn = adj_12.multiply(adj_21.T)
     return adj_mnn
 
 
 def get_transition_prob_mat(dat, k=50, symm=True):
-    index = NNDescent(dat)
-    knn = index.query(dat, k=k)
-    adj = nn2adj(knn, n1=dat.shape[0], n2=dat.shape[0])
+    adj = build_nn(dat, k=k)
     if symm:
-        adj = ((adj + adj.T) > 0) + 0
+        adj = adj + adj.transpose()
     prob = sparse.diags(1 / np.array(adj.sum(1)).flatten()) @ adj.transpose()
     return prob
 
@@ -133,7 +107,6 @@ def get_wknn(
         "n", "top_n", "jaccard", "jaccard_square", "gaussian", "dist"
     ] = "jaccard_square",
     top_n: Optional[int] = None,
-    sigma: Optional[float] = None,
     return_adjs: bool = False,
 ):
     """
@@ -157,61 +130,42 @@ def get_wknn(
         How to weight edges in the ref-query neighbor graph
     top_n : int
         The number of top neighbors to consider
-    sigma : float
-        The sigma for gaussian kernel
     return_adjs : bool
         Whether to return the adjacency matrices of ref-query, query-ref, ref-ref, and ref-ref for weighting
     """
-    adj_q2r = build_nn(
-        ref=ref,
-        query=query,
-        k=k,
-        weight="dist" if weighting_scheme in ["gaussian", "dist"] else "unweighted",
-    )
+    adj_q2r = build_nn(ref=ref, query=query, k=k)
 
     adj_r2q = None
     if ref2query:
-        adj_r2q = build_nn(
-            ref=query,
-            query=ref,
-            k=k,
-            weight="dist" if weighting_scheme in ["gaussian", "dist"] else "unweighted",
-        )
+        adj_r2q = build_nn(ref=query, query=ref, k=k)
 
     if query2ref and not ref2query:
         adj_knn = adj_q2r.T
     elif ref2query and not query2ref:
         adj_knn = adj_r2q
     elif ref2query and query2ref:
-        adj_knn_shared = (adj_r2q > 0).multiply(adj_q2r.T > 0)
-        adj_knn = adj_r2q + adj_q2r.T - adj_r2q.multiply(adj_knn_shared)
+        adj_knn = ((adj_r2q + adj_q2r.T) > 0) + 0
     else:
         warnings.warn(
             "At least one of query2ref and ref2query should be True. Reset to default with both being True."
         )
-        adj_knn_shared = (adj_r2q > 0).multiply(adj_q2r.T > 0)
-        adj_knn = adj_r2q + adj_q2r.T - adj_r2q.multiply(adj_knn_shared)
+        adj_knn = ((adj_r2q + adj_q2r.T) > 0) + 0
 
-    if weighting_scheme in ["n", "top_n", "jaccard", "jaccard_square"]:
-        if ref2 is None:
-            ref2 = ref
-        adj_ref = build_nn(ref=ref2, k=k)
-        num_shared_neighbors = adj_q2r @ adj_ref.T
-        num_shared_neighbors_nn = num_shared_neighbors.multiply(adj_knn.T)
+    if ref2 is None:
+        ref2 = ref
+    adj_ref = build_nn(ref=ref2, k=k)
+    num_shared_neighbors = adj_q2r @ adj_ref.T
+    num_shared_neighbors_nn = num_shared_neighbors.multiply(adj_knn.T)
 
-        wknn = num_shared_neighbors_nn.copy()
-        if weighting_scheme == "top_n":
-            if top_n is None:
-                top_n = k // 4 if k > 4 else 1
-            wknn = (wknn > top_n) * 1
-        elif weighting_scheme == "jaccard":
-            wknn.data = wknn.data / (k + k - wknn.data)
-        elif weighting_scheme == "jaccard_square":
-            wknn.data = (wknn.data / (k + k - wknn.data)) ** 2
-    else:
-        wknn = adj_knn.T
-        if weighting_scheme == "gaussian":
-            wknn.data = gaussian_kernel(wknn.data, sigma=sigma)
+    wknn = num_shared_neighbors_nn.copy()
+    if weighting_scheme == "top_n":
+        if top_n is None:
+            top_n = k // 4 if k > 4 else 1
+        wknn = (wknn > top_n) * 1
+    elif weighting_scheme == "jaccard":
+        wknn.data = wknn.data / (k + k - wknn.data)
+    elif weighting_scheme == "jaccard_square":
+        wknn.data = (wknn.data / (k + k - wknn.data)) ** 2
 
     if return_adjs:
         adjs = {"q2r": adj_q2r, "r2q": adj_r2q, "knn": adj_knn, "r2r": adj_ref}
