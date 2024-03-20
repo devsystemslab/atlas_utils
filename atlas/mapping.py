@@ -1,6 +1,8 @@
 import os
 import sys
 
+import cloudpickle
+
 from typing import Literal, Optional
 
 import numpy as np
@@ -209,3 +211,29 @@ class AtlasMapper:
         )
 
         return scores
+
+    def save(self, output_dir):
+        """
+        Save the mapper object to disk
+
+        Parameters
+        ----------
+        output_dir : str
+            The directory to save the mapper object
+        """
+        os.makedirs(output_dir, exist_ok=True)
+        with open(os.path.join(output_dir, "mapper.pkl"), "wb") as f:
+            cloudpickle.dump(self, f)
+
+    def load(self, output_dir):
+        """
+        Load the mapper object from disk
+
+        Parameters
+        ----------
+        output_dir : str
+            The directory to load the mapper object
+        """
+        with open(os.path.join(output_dir, "mapper.pkl"), "rb") as f:
+            mapper = cloudpickle.load(f)
+        return mapper
