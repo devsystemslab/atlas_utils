@@ -110,6 +110,7 @@ class AtlasMapper:
 
     def compute_wknn(
         self,
+        ref_adata=None,
         k: int = 100,
         query2ref: bool = True,
         ref2query: bool = True,
@@ -136,6 +137,7 @@ class AtlasMapper:
             The number of top neighbors to consider
         """
 
+        self.ref_adata = ref_adata if ref_adata is not None else self.ref_adata
         ref_latent = self._get_latent(self.query_model, self.ref_adata)
         query_latent = self._get_latent(self.query_model, self.query_adata)
 
