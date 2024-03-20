@@ -225,15 +225,16 @@ class AtlasMapper:
         with open(os.path.join(output_dir, "mapper.pkl"), "wb") as f:
             cloudpickle.dump(self, f)
 
-    def load(self, output_dir):
+    @classmethod
+    def load(cls, input_dir):
         """
         Load the mapper object from disk
 
         Parameters
         ----------
-        output_dir : str
+        input_dir : str
             The directory to load the mapper object
         """
-        with open(os.path.join(output_dir, "mapper.pkl"), "rb") as f:
+        with open(os.path.join(input_dir, "mapper.pkl"), "rb") as f:
             mapper = cloudpickle.load(f)
         return mapper
