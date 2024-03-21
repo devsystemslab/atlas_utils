@@ -2,9 +2,10 @@
 
 Library to do altas things, including:
 
-* Marker-based annotation at scale
-* Reference mapping to organoid and primary atlas
-* Reference label transfer
-* Calculation of presence scores
-* Calculation of presence gains compared to organoid atlas 
+[x] Reference mapping to organoid and primary atlas
+[x] Reference label transfer
+[x] Calculation of presence scores
+* Calculation of presence gains compared to organoid atlas
+* Marker-based annotation (snapseed)
+* DE analysis
 
