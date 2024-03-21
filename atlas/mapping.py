@@ -120,7 +120,6 @@ class AtlasMapper:
             "n", "top_n", "jaccard", "jaccard_square", "gaussian", "dist"
         ] = "jaccard_square",
         top_n: Optional[int] = None,
-        use_gpu: bool = False,
     ):
         """
         Compute the weighted k-nearest neighbors graph between the reference and query datasets
