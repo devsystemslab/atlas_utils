@@ -1,0 +1,23 @@
+.md-header__button.md-logo img, .md-header__button.md-logo svg {
+    display: block;
+    width: 3rem;
+    height: 3rem;
+    fill: currentColor;
+    margin: 0 auto;
+}
+
+.md-header-nav__title {
+    font-size: 1.1rem;
+    line-height: 2.4rem;
+}
+
+.md-header__topic:first-child {
+    font-size: 1.8rem;
+    line-height: 2.4rem;
+    font-weight: normal;
+    color: #515A5A;
+}
+
+.md-content__button {
+  display: none;
+}
